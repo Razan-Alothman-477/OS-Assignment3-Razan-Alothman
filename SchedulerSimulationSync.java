@@ -61,43 +61,77 @@ class SharedStats {
     static final java.util.concurrent.atomic.AtomicInteger busyWaitPolls = new java.util.concurrent.atomic.AtomicInteger(0);
 
     // TODO Feature 2: declare the lock(s) protecting the three shared variables above here.
+    private static final ReentrantLock csLock = new ReentrantLock();
+    private static final ReentrantLock completedLock = new ReentrantLock();
+    private static final ReentrantLock serviceLock = new ReentrantLock();
+
     // Think about it: ONE lock for the three variables, or ONE lock PER variable? (you must justify it in MY_WORK.md)
 
     public static void incrementContextSwitch() {
         // TODO Feature 2: protect this critical section
+        csLock.lock();
+        try {
         int tmp = contextSwitchCount;       // 1) read
         RaceWindow.pause();                 //    <- another thread can read the SAME value here
-        contextSwitchCount = tmp + 1;       // 2) write  (one increment is lost if someone else did the same)
+        contextSwitchCount = tmp + 1;   
+        } finally{
+            csLock.unlock();
+        }    // 2) write  (one increment is lost if someone else did the same)
     }
 
     public static void incrementCompletedProcess() {
         // TODO Feature 2: protect this critical section
+        completedLock.lock();
+        try{
         int tmp = completedProcessCount;
         RaceWindow.pause();
         completedProcessCount = tmp + 1;
+        }finally{
+            completedLock.unlock();
+        }
     }
 
     public static void addServiceTime(int ms) {
         // TODO Feature 2: protect this critical section
+        serviceLock.lock();
+        try{
         long tmp = totalServiceTime;
         RaceWindow.pause();
         totalServiceTime = tmp + ms;
+        }finally{
+            serviceLock.unlock();
+        }
     }
 
     // Readers must also be protected (a read in the middle of an update is not safe either)
     public static int getCompletedProcessCount() {
         // TODO Feature 2: protect this read
+        completedLock.lock();
+        try{
         return completedProcessCount;
+        }finally{
+            completedLock.unlock();
+        }
     }
 
     public static int getContextSwitchCount() {
         // TODO Feature 2: protect this read
+        csLock.lock();
+        try{
         return contextSwitchCount;
+        }finally{
+            csLock.unlock();
+        }
     }
 
     public static long getTotalServiceTime() {
         // TODO Feature 2: protect this read
+        serviceLock.lock();
+        try{
         return totalServiceTime;
+        }finally{
+            serviceLock.unlock();
+        }
     }
 }
 
