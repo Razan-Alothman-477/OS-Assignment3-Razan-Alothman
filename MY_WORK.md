@@ -132,21 +132,21 @@
 
 ## Your Development Log
 
-### Entry 1 - [Date and Time]
-**What I did**:
+### Entry 1 - [November 13, 2026 at 2:06 PM]
+**What I did**: i set my student ID in SchedulerSimulationSync.java
 
 **Details**:
-
+nothing much
 **Challenges**:
-
+no challenges
 **Solution**:
 
 **Time spent**:
-
+5 min
 ---
 
-### Entry 2 - [Date and Time]
-**What I did**:
+### Entry 2 - [November 13, 2026 at 2:37 PM]
+**What I did**: i set my informations in MY_WORK class
 
 **Details**:
 
@@ -155,24 +155,24 @@
 **Solution**:
 
 **Time spent**:
-
+about 10min
 ---
 
-### Entry 3 - [Date and Time]
-**What I did**:
+### Entry 3 - [November 13, 2026 at 10:58 PM]
+**What I did**:Feature 1: Mutex lock on the ready queue
 
 **Details**:
-
+it was the easiest to do
 **Challenges**:
-
+nothing
 **Solution**:
 
 **Time spent**:
-
+about 25min
 ---
 
-### Entry 4 - [Date and Time]
-**What I did**:
+### Entry 4 - [November 13, 2026 at 11:30 PM]
+**What I did**:Feature 2: Mutex locks on the shared statistics
 
 **Details**:
 
@@ -181,11 +181,11 @@
 **Solution**:
 
 **Time spent**:
-
+about an hour.
 ---
 
-### Entry 5 - [Date and Time]
-**What I did**:
+### Entry 5 - [November 14, 2026 at 2:14 AM]
+**What I did**:Feature 3: Counting semaphore instead of busy waiting
 
 **Details**:
 
@@ -194,7 +194,7 @@
 **Solution**:
 
 **Time spent**:
-
+hour and a half
 ---
 
 ### Entry 6 - [Optional - Date and Time]
@@ -214,14 +214,14 @@
 
 > 💡 **TIP:** Fill this in **last**, after all entries are written.
 
-**Total time spent on assignment**: [X hours]
+**Total time spent on assignment**: [5 hour]
 
 **Most challenging part**:
-
+implemnting Mutex locks
 **Most interesting learning**:
-
+implemnting Mutex locks
 **What I would do differently next time**:
-
+starting erlier
 ---
 
 # Part B: Reflection (0.5 mark)
@@ -240,7 +240,7 @@
 
 **Your Answer:** *(5-7 sentences)*
 
-[Write your answer here.]
+[I learned how race conditions corrupt shared data when multiple CPU threads execute read-modify-write operations concurrently. In the starter code, I was surprised to see mismatches in Context switches, Completed processes, and Total service time. Adding ReentrantLock with try/finally blocks enforced mutual exclusion safely across ReadyQueue and SharedStats. I also learned how a counting Semaphore initialized to 0 replaces wasteful busy-waiting by putting idle CPUs to sleep until add() signals them. Seeing Busy-waiting polls drop to 0 showed me how proper synchronization keeps concurrent schedulers accurate and efficient.]
 
 ## Question 2: What was the most challenging part of this assignment?
 
@@ -248,7 +248,7 @@
 
 **Your Answer:** *(5-7 sentences)*
 
-[Write your answer here.]
+[The most challenging part was implementing the clean shutdown for the counting Semaphore in CpuWorker.run(). It was tricky to wake up CPU threads blocked on readyCount.acquire() after all 12 processes finished. Without releasing extra permits at the end, sleeping threads would stay blocked forever and trigger the watchdog timeout. Placing readyCount.acquire() before queueLock.lock() in poll() also required careful ordering to prevent a deadlock. Solving this helped me understand how signaling and thread termination work together.]
 
 ## Question 3: How did you overcome the challenges you faced?
 
@@ -256,7 +256,7 @@
 
 **Your Answer:** *(5-7 sentences)*
 
-[Write your answer here.]
+[I overcame these challenges by implementing one feature at a time and testing each five times before committing. When I hit missing import errors and a NoSuchMethodError from old .class files, I opened the repository in a clean VS Code folder and checked the Problems tab. For the semaphore shutdown, I added a shutdown(int cpuCount) method in ReadyQueue that releases permits when completedProcessCount equals totalProcesses. Checking the verification table after every run confirmed that each fix worked properly.]
 
 ## Question 4: Where can synchronization concepts be applied in real-world applications?
 
@@ -264,7 +264,7 @@
 
 **Your Answer:** *(5-7 sentences)*
 
-[Write your answer here.]
+[After working on this assignment, I can easily see how these ideas show up in apps we use every day. For example, when people transfer money in a banking app, the account balance is shared data that needs a lock so two transfers do not mess up the total, just like we used ReentrantLock for SharedStats. Another clear example is booking flight or concert tickets online, where a lock stops two people from grabbing the exact same seat at once. Also, a shared office print queue works just like our ReadyQueue with a counting semaphore, where the printer waits quietly until someone sends a document. If developers did not use locks and semaphores in these apps, we would constantly see wrong bank balances, double-booked seats, and slow devices.]
 
 ### Optional: What would you like to learn more about?
 
