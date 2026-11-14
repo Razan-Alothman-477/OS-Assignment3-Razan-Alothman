@@ -298,20 +298,33 @@ starting erlier
 
 **Your Answer:** *(3-5 sentences)*
 
-[Write your answer here.]
+[When I first ran the starter code, `CPU-1`, `CPU-2`, and `CPU-3` crashed right away with a `NullPointerException` inside `ReadyQueue.snapshot()`, which left `Context switches` (expected 28, observed 0), `Completed processes` (expected 12, observed 0), and `Total service time` (expected 82849, observed 0) all wrong. Because there were no locks, the CPU threads collided while reading and changing shared data at the same time. Even on a real computer without `RaceWindow`, the operating system can pause one thread right before it saves its update and let another thread jump in. These bugs are tricky to catch because the clash happens in tiny fractions of a second, so the program might fail on one run and look fine on the next.]
 
 Verification block of the **original starter**:
 ```
-[Paste the verification block (or the exception/watchdog message) of the starter here]
+[Exception in thread "CPU-1" Exception in thread "CPU-2" Exception in thread "CPU-3" java.lang.NullPointerException: Cannot read field "next" because "this.next" is null
+	at java.base/java.util.LinkedList$ListItr.next(LinkedList.java:905)
+	at ReadyQueue.snapshot(SchedulerSimulationSync.java:151)
+	at CpuWorker.run(SchedulerSimulationSync.java:280)
+
+Context switches (quanta executed)     expected 28         observed 0          ✘ MISMATCH
+Completed processes                     expected 12         observed 0          ✘ MISMATCH
+Total service time (ms)                 expected 82849      observed 0          ✘ MISMATCH
+Busy-waiting polls (must be 0)          expected 0          observed 0          ✔]
 ```
 
 Verification block of **my final version**:
 ```
-[Paste the verification block of your final version here (all lines ✔)]
+[Context switches (quanta executed)     expected 28         observed 28         ✔
+Completed processes                     expected 12         observed 12         ✔
+Total service time (ms)                 expected 82849      observed 82849      ✔
+Busy-waiting polls (must be 0)          expected 0          observed 0          ✔
+All shared values are consistent.
+]
 ```
 
 **Explanation of the timeline:**
-[Explain the lost update step by step.]
+[CPU-1 reads `contextSwitchCount` = 5 -> CPU-1 gets paused at `RaceWindow.pause()` -> CPU-2 jumps in and reads `contextSwitchCount` = 5 -> CPU-1 wakes up and writes 6 -> CPU-2 also writes 6 -> CPU-1's update is completely overwritten and lost.]
 
 ## Question 2: Critical Sections and Lock Granularity
 
@@ -321,12 +334,12 @@ Verification block of **my final version**:
 
 **Your Answer:** *(3-5 sentences)*
 
-[Write your answer here.]
+[I used fine-grained locking by giving each of the three counters in `SharedStats` its own lock (`csLock`, `completedLock`, and `serviceLock`), because they are completely independent and updating one should not block a CPU from updating another. The trade-off is managing a bit more code compared to a single shared lock, which is simpler to write. I also kept `queueLock` separate for `ReadyQueue` so that slow queue snapshots or polls never block quick counter updates, preventing unnecessary waiting. These mutex locks guarantee mutual exclusion since only one thread can enter each critical section at a time, and progress is maintained because every lock is always released in a `finally` block. However, since a default `ReentrantLock` is non-fair, bounded waiting is not strictly guaranteed because a thread could theoretically jump ahead of another waiting thread.]
 
 | Critical section (variable / method) | Lock used | Why it needs protection |
-|---|---|---|
+||||
 | [e.g., `ReadyQueue.poll()`] | [lock name] | [reason] |
-| [...] | [...] | [...] |
+| [ `ReadyQueue` (`list` & `map` in `add`, `poll`, `processOf`, `snapshot`)|`queueLock`] | [|`queueLock`] | [Prevents concurrent reads and modifications from corrupting the queue or causing `NullPointerException`.] |
 
 ## Question 3: Busy Waiting vs Semaphore
 
@@ -336,7 +349,7 @@ Verification block of **my final version**:
 
 **Your Answer:** *(3-5 sentences)*
 
-[Write your answer here.]
+[In the starter code, when the ready queue was empty, CPUs kept looping and sleeping for 20ms in a busy-waiting loop (`Busy-waiting polls` reached 4 to 8 in my early runs), wasting CPU cycles just checking an empty queue. In my final version, the counting semaphore `readyCount` represents the exact number of processes currently waiting in `ReadyQueue`. It starts with an initial value of `0` because the queue is empty at startup, and right after the initial `numProcesses` (12) `add()` calls, its value becomes `12` so all 3 CPUs can immediately grab work and put idle threads to sleep via `acquire()`. At the end, the last CPU to finish calls `release(totalCPUs)` so that any worker threads still sleeping on `acquire()` wake up, see that all processes are done, and exit cleanly instead of staying blocked forever and triggering the watchdog timeout.]
 
 ## Question 4: Classical Problems and Deadlock
 
@@ -347,23 +360,23 @@ Verification block of **my final version**:
 **Your Answer:** *(3-5 sentences)*
 
 **Classical problem and roles**:
-[Name the problem; who is the producer, who is the consumer?]
+[This is the classical **Producer-Consumer (Bounded-Buffer) problem**. Both the `main` thread (when initially adding all 12 processes) and the `CpuWorker` threads (when re-enqueuing unfinished processes back into `ReadyQueue`) act as **producers**, while the `CpuWorker` threads act as **consumers** whenever they call `poll()` to take processes out of the queue.]
 
 **Semaphores for a bounded queue (name and initial value)**:
-[Name the three semaphores and their initial values.]
+[If `ReadyQueue` were bounded to capacity `K`, we would need three semaphores: `mutex` initialized to `1` (to protect queue access), `empty` initialized to `K` (to count available free slots in the queue), and `full` initialized to `0` (to count how many processes are currently ready in the queue).]
 
 **Deadlock scenario and prevention**:
-[Describe the scenario and the necessary condition you would break.]
+[A deadlock happens if a consumer acquires `queueLock` (mutex) first and then calls `readyCount.acquire()` while the queue is empty: the consumer goes to sleep while still holding `queueLock`, blocking any producer from acquiring `queueLock` to add a new process and wake it up. By always acquiring the semaphore *before* acquiring the mutex lock (consistent resource ordering), we break the **Circular Wait** condition and completely prevent this deadlock.]
 
 ## Summary
 
 **Key concepts I understood through these questions:**
-1.
-2.
+1.How race conditions and lost updates happen on shared data, and how to prevent them using `ReentrantLock` with `try/finally` blocks.
+2.How choosing fine-grained locking over coarse-grained locking reduces unnecessary blocking between independent counters.
 3.
 
 **Concepts I need to study more:**
-1.
+1.Advanced synchronization tools like `Condition` variables and read-write locks for more complex producer-consumer scenarios.
 2.
 
 ---
@@ -373,33 +386,33 @@ Verification block of **my final version**:
 > ⚠️ **WARNING:** Go through every line. Blackboard does not accept submissions after the deadline, which is **November 14, 2026**.
 
 **Repository**
-- [ ] Repository is **PUBLIC** (Settings → Danger Zone → Visibility)
-- [ ] Repository is renamed to `OS-Assignment3-YourFirstName-YourLastName`
-- [ ] GitHub account uses the university email (`@std.psau.edu.sa`)
+- [ done ] Repository is **PUBLIC** (Settings → Danger Zone → Visibility)
+- [ done ] Repository is renamed to `OS-Assignment3-YourFirstName-YourLastName`
+- [ done] GitHub account uses the university email (`@std.psau.edu.sa`)
 
 **Code**
-- [ ] Student ID is set in `SchedulerSimulationSync.java` (line 304)
-- [ ] My code is based **only** on the starter of this repository (nothing copied from previous assignments)
-- [ ] Code compiles and runs with no errors, and terminates by itself (no `⛔ WATCHDOG`)
-- [ ] Feature 1 (ready queue lock), Feature 2 (statistics locks) and Feature 3 (semaphore, no busy waiting) all work
-- [ ] **The four verification lines are ✔ in 5 consecutive runs**
-- [ ] Every lock is released in a `finally` block
-- [ ] `RaceWindow`, `Config`, the verification block and the watchdog are **unchanged**
-- [ ] Each feature has clear comments
+- [ done ] Student ID is set in `SchedulerSimulationSync.java` (line 304)
+- [ done ] My code is based **only** on the starter of this repository (nothing copied from previous assignments)
+- [ done ] Code compiles and runs with no errors, and terminates by itself (no `⛔ WATCHDOG`)
+- [ done ] Feature 1 (ready queue lock), Feature 2 (statistics locks) and Feature 3 (semaphore, no busy waiting) all work
+- [ done ] **The four verification lines are ✔ in 5 consecutive runs**
+- [ done ] Every lock is released in a `finally` block
+- [ done ] `RaceWindow`, `Config`, the verification block and the watchdog are **unchanged**
+- [ done ] Each feature has clear comments
 
 **Commits**
-- [ ] **At least 4 meaningful commits, ideally 7 or more**
-- [ ] **One commit per feature**
-- [ ] Commits are spread over **different dates** (not all in the last hour)
-- [ ] Everything is **pushed** to GitHub
+- [ done ] **At least 4 meaningful commits, ideally 7 or more**
+- [ done ] **One commit per feature**
+- [ done ] Commits are spread over **different dates** (not all in the last hour)
+- [ done ] Everything is **pushed** to GitHub
 
 **This file (`MY_WORK.md`)**
-- [ ] Full name and student ID filled in at the top
-- [ ] Development log has **5+ entries** on different dates
-- [ ] Reflection: 4 questions, 5-7 sentences each
-- [ ] Technical answers: 4 questions, 3-5 sentences each, with examples from **your** output (starter output **and** final output pasted in Question 1)
-- [ ] No `[...]` placeholders left
-- [ ] No section headers deleted
+- [ done ] Full name and student ID filled in at the top
+- [ done ] Development log has **5+ entries** on different dates
+- [ done ] Reflection: 4 questions, 5-7 sentences each
+- [ done ] Technical answers: 4 questions, 3-5 sentences each, with examples from **your** output (starter output **and** final output pasted in Question 1)
+- [ done ] No `[...]` placeholders left
+- [ done ] No section headers deleted
 
 **Video**
 - [ ] 2-3 minutes long, named `StudentID_Assignment3_Demo.mp4`
